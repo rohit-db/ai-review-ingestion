@@ -1,0 +1,14 @@
+LICENSE
+README.md
+setup.py
+auto_topic/__init__.py
+auto_topic/domains.py
+auto_topic/extract.py
+auto_topic/index.py
+auto_topic/sentiment.py
+auto_topic/source.py
+auto_topic_gen.egg-info/PKG-INFO
+auto_topic_gen.egg-info/SOURCES.txt
+auto_topic_gen.egg-info/dependency_links.txt
+auto_topic_gen.egg-info/requires.txt
+auto_topic_gen.egg-info/top_level.txt

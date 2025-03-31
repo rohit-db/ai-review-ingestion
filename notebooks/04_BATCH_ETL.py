@@ -27,6 +27,12 @@ topics_df
 
 # COMMAND ----------
 
+MODEL_ID = 'databricks-meta-llama-3-1-70b-instruct'
+# MODEL_ID = "databricks-meta-llama-3-1-405b-instruct"
+# MODEL_ID = 'rb-llama80b-temp'
+
+# COMMAND ----------
+
 from pyspark.sql import functions as F
 import json
 import dspy
@@ -36,9 +42,9 @@ from typing import Iterator, Tuple
 @F.pandas_udf("string")
 def extract_domain_details(feedback_and_ratings: Iterator[Tuple[pd.Series, pd.Series]]) -> Iterator[pd.Series]:
     # Do some expensive initialization with a state
-    language_model = dspy.OpenAI(
-        model=MODEL_ID,
-        max_tokens=500,
+    language_model = dspy.LM(
+        model=f"databricks/{MODEL_ID}",
+        max_tokens=1000,
         temperature=0.1,
         api_key=TOKEN,
         api_base=f"{WORKSPACE_URL}/serving-endpoints/"
@@ -73,16 +79,12 @@ reviews.display()
 
 # COMMAND ----------
 
-spark.sql(f"DROP TABLE IF EXISTS {CATALOG}.{SCHEMA}.{TARGET_TABLE}")
-
-# COMMAND ----------
-
 #  REMOVE LIMIT 10
 if spark.catalog.tableExists(f"{CATALOG}.{SCHEMA}.{TARGET_TABLE}") is False:
     print(f"Creating Target Table: {CATALOG}.{SCHEMA}.{TARGET_TABLE}")
     spark.sql(f"""
               SELECT *, cast(null as string) as analysis FROM {CATALOG}.{SCHEMA}.{REVIEWS_TABLE}
-               LIMIT 10 
+               
               """).write.format("delta").mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.{TARGET_TABLE}")
 else:
     print(f"Table: {CATALOG}.{SCHEMA}.{TARGET_TABLE} already exists!")
@@ -91,19 +93,6 @@ else:
 
 # seed reviews
 display(spark.sql(f"SELECT * FROM {CATALOG}.{SCHEMA}.{TARGET_TABLE};"))
-
-# COMMAND ----------
-
-from delta.tables import DeltaTable
-
-target_table = DeltaTable.forName(spark, f"{CATALOG}.{SCHEMA}.{TARGET_TABLE}")
-
-records = spark.sql(f"SELECT *, cast(null as string) as analysis FROM {CATALOG}.{SCHEMA}.{REVIEWS_TABLE}")
-
-target_table.alias("target").merge(
-    source=records.alias("source"),
-    condition="target.review_id = source.review_id",
-).whenNotMatchedInsertAll().execute()
 
 # COMMAND ----------
 
@@ -121,6 +110,10 @@ display(spark.sql(f"DESCRIBE HISTORY {CATALOG}.{SCHEMA}.{TARGET_TABLE};"))
 # MAGIC
 # MAGIC
 # MAGIC If there are 1000 null records and BATCH_ETL_BATCH_SIZE=500 you will have 2 transcations made to the table. 
+
+# COMMAND ----------
+
+BATCH_ETL_BATCH_SIZE=20
 
 # COMMAND ----------
 
@@ -155,10 +148,32 @@ while unanalyzed_records_ct > 0:
 
 # COMMAND ----------
 
+# Deduplicate google_reviews table based on the review column, keeping the first occurrence
+google_reviews = spark.table(f"{CATALOG}.{SCHEMA}.{TARGET_TABLE}")
+
+deduplicated_google_reviews = google_reviews.dropDuplicates(["review"])
+
+# Overwrite the original table with the deduplicated data
+deduplicated_google_reviews.write.format("delta").mode("overwrite").saveAsTable(f"{CATALOG}.{SCHEMA}.{TARGET_TABLE}")
+
+# COMMAND ----------
+
+google_reviews.display()
+
+# COMMAND ----------
+
+display(unanalyzed_records)
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## Generate Analysis Views
 # MAGIC
 # MAGIC Build views to analyze data along with comments. These tables can be used for genie data room
+
+# COMMAND ----------
+
+type(dct)
 
 # COMMAND ----------
 

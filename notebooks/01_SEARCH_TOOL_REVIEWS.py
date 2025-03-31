@@ -16,6 +16,12 @@ reviews_df.display()
 
 # COMMAND ----------
 
+reviews_df = spark.table(f"{CATALOG}.{SCHEMA}.costa_google_reviews")
+reviews_df.selectExpr("place_id", "address", "author", "review_id", "review").display()
+reviews_df = reviews_df.selectExpr("place_id", "address", "author", "review_id", "review")
+
+# COMMAND ----------
+
 from openai import OpenAI
 
 TOKEN = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().getOrElse(None)
@@ -59,7 +65,7 @@ for idx, chunk in enumerate(chunked_list):
 
 # COMMAND ----------
 
-final_data[0]
+final_data[99]
 
 # COMMAND ----------
 
@@ -86,8 +92,8 @@ import re
 DEFAULT = "Query Text..."
 sentence = solara.reactive(DEFAULT)
 result_limit = solara.reactive(10)
-brands =  ["All Brands"] + spark.sql(f"SELECT distinct brand from {CATALOG}.{SCHEMA}.{REVIEWS_TABLE}").toPandas()["brand"].tolist()
-selected_brand = solara.reactive("All Brands")
+addresses =  ["All addresses"] + spark.sql(f"SELECT distinct address as address from {CATALOG}.{SCHEMA}.costa_google_reviews").toPandas()["address"].tolist()
+selected_address = solara.reactive("All addresses")
 
 def highlight_text(input_string, query_string):
     """
@@ -114,12 +120,12 @@ def highlight_text(input_string, query_string):
 def Page():
     # Calculate word_count within the component to ensure re-execution when reactive variables change.
     word_count = len(sentence.value.split())
-    solara.Select("Select an brand", values=brands, value=selected_brand)
+    solara.Select("Select an address", values=addresses, value=selected_address)
     solara.SliderInt("Result Limit", value=result_limit, min=5, max=50)
     solara.InputText(label="Your sentence", value=sentence, continuous_update=True)
 
-    if selected_brand.value != "All Brands":
-        condition = {"brand": selected_brand.value}
+    if selected_address.value != "All addresses":
+        condition = {"address": selected_address.value}
     else:
         condition = None
         
@@ -128,8 +134,8 @@ def Page():
         cleaned_sentence_value = re.sub(pattern, '', sentence.value)
 
         total_ct = indexer.get_total_by(conditions=condition)
-        txt_res = indexer.text_query_by(cleaned_sentence_value, condition, select=["brand", "review", "review_id"])
-        vec_res = indexer.vector_query_by(cleaned_sentence_value, get_embedding, condition, select=["brand", "review", "review_id"], threshold=0.7)
+        txt_res = indexer.text_query_by(cleaned_sentence_value, condition, select=["address", "review", "review_id"])
+        vec_res = indexer.vector_query_by(cleaned_sentence_value, get_embedding, condition, select=["address", "review", "review_id"], threshold=0.7)
 
         solara.HTML(tag="div", unsafe_innerHTML=f"""
                     <ul>

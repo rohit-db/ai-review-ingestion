@@ -10,6 +10,10 @@
 
 # COMMAND ----------
 
+SCHEMA = 'lce_demo'
+
+# COMMAND ----------
+
 from auto_topic.domains import DomainConfigTable
 from auto_topic.sentiment import get_analyzer, enable_arize_tracing, get_valid_responses_for_categories, get_when_to_use_category
 import pandas as pd
@@ -34,7 +38,7 @@ dct = DomainConfigTable.from_table(spark, catalog=CATALOG, schema=SCHEMA, table=
 
 import dspy
 TOKEN = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().getOrElse(None)
-language_model = dspy.OpenAI(
+language_model = dspy.LM(
     model=MODEL_ID, # model='databricks-dbrx-instruct',
     max_tokens=500,
     temperature=0.1,
@@ -75,7 +79,3 @@ demo = gr.Interface(
 
 from dbtunnel import dbtunnel
 dbtunnel.gradio(demo).run()
-
-# COMMAND ----------
-
-
